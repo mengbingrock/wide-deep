@@ -5,6 +5,7 @@ import numpy as np
 #import widedeep as ms
 from node import *
 #from widedeep.node import *
+from trainer import *
 
 """
 制造训练样本。根据均值171，标准差6的正态分布采样500个男性身高，根据均值158，
@@ -34,7 +35,6 @@ train_set = np.array([np.concatenate((male_heights, female_heights)),
 # 随机打乱样本顺序
 np.random.shuffle(train_set)
 
-
 # 构造计算图：输入向量，是一个3x1矩阵，不需要初始化，不参与训练
 x = Tensor(shape=(3, 1), init=False, trainable=False)
 
@@ -52,11 +52,8 @@ b = Tensor(shape=(1, 1), init=True, trainable=True)
 output = Add(MatMul(w, x), b)
 predict = Step(output)
 
-print(predict.parents[0].childs)
-
 # 损失函数
 loss = PerceptionLoss(MatMul(label, output))
-
 
 # 学习率
 learning_rate = 0.0001
@@ -79,14 +76,10 @@ for epoch in range(1):
         x.set_value(features)
         label.set_value(l)
         
-        
 
         # 在loss节点上执行前向传播，计算损失值
         #import pdb; pdb.set_trace() 
         loss.forward()
-        print('label is', l, label.outputs)
-        print('output is', output.outputs)
-        print('!!!!!!!!!!!!!!!!!!loss.output:', loss.outputs)
 
         # 在w和b节点上执行反向传播，计算损失值对它们的雅可比矩阵
         w.backward(loss)
@@ -100,15 +93,9 @@ for epoch in range(1):
         将改变形状后的梯度乘上学习率，从当前变量值中减去，再赋值给变量节点，
         完成梯度下降更新。
         """
-        #print(w.shape())
-        #print( w.jacobian, b.jacobian)
+
         w.set_value(w.outputs - learning_rate * w.jacobian.T.reshape(w.shape))
         b.set_value(b.outputs - learning_rate * b.jacobian.T.reshape(b.shape))
-
-        print('value')
-        print(w.outputs, b.outputs)
-        print('jacobian')
-        print(w.jacobian, b.jacobian)
 
         # default_graph对象保存了所有节点，调用clear_jacobi方法清除所有节点的雅可比矩阵
         default_graph.clear_jacobian()
@@ -129,9 +116,42 @@ for epoch in range(1):
         pred.append(predict.outputs[0, 0])  # 模型的预测结果：1男，0女
 
     pred = np.array(pred) * 2 - 1  # 将1/0结果转化成1/-1结果，好与训练标签的约定一致
-    print('======pred:', pred)
+    #print('======pred:', pred)
     # 判断预测结果与样本标签相同的数量与训练集总数量之比，即模型预测的正确率
     accuracy = (train_set[:, -1] == pred).astype(np.int).sum() / len(train_set)
 
     # 打印当前epoch数和模型在训练集上的正确率
     print("epoch: {:d}, accuracy: {:.3f}".format(epoch + 1, accuracy))
+
+# 保存模型
+saver = Saver('.')
+
+saver.save()
+
+saver.load(model_file_name='model.json', weights_file_name='weights.npz')
+
+x = get_node_from_graph("Tensor:0")
+pred = get_node_from_graph("Step:6")
+
+print(x, pred)
+preds = []
+
+for i in range(100):
+    #for i in range(1):
+
+    features = np.mat(train_set[i, :-1]).T
+    x.set_value(features)
+
+    # 在模型的predict节点上执行前向传播
+    pred.forward()
+
+    preds.append(pred.outputs[0, 0])
+
+
+preds = np.array(preds) * 2 - 1  # 将1/0结果转化成1/-1结果，好与训练标签的约定一致
+#print('======pred:', pred)
+# 判断预测结果与样本标签相同的数量与训练集总数量之比，即模型预测的正确率
+accuracy = (train_set[:100, -1] == preds).astype(np.int).sum() / 100
+
+# 打印当前epoch数和模型在训练集上的正确率
+print("accuracy: {:.3f}".format(accuracy))

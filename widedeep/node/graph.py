@@ -14,6 +14,9 @@ class Graph:
         """
         self.nodes.append(node)
 
+    def node_count(self):
+        return len(self.nodes)
+
     def clear_jacobian(self):
         
         """

@@ -5,9 +5,14 @@ from .graph import default_graph
 
 class Node:
     def __init__(self, *parents, **kargs):
-        self.name = self.__class__.__name__
+        
         self.parents = list(parents)
+        self.kargs = kargs
         self.graph = kargs.get('graph', default_graph)
+        self.name = self.gen_node_name(**kargs)
+        self.name = self.__class__.__name__ + ':' +self.graph.node_count().__str__()
+        print('Node name: {}'.format(self.name))
+        self.need_save = kargs.get('need_save', True)
         
         
         
@@ -19,6 +24,14 @@ class Node:
             parent.childs.append(self)
         
         self.graph.add_node(self)
+
+    def gen_node_name(self, **kargs):
+        """
+        生成节点名称，如果用户不指定，则根据节点类型生成类似于"MatMul:3"的节点名，
+        如果指定了name_scope，则生成类似"Hidden/MatMul:3"的节点名
+        """
+        self.name = kargs.get('name', '{}:{}'.format(
+            self.__class__.__name__, self.graph.node_count()))
 
     def forward(self):
         for parent in self.parents:
