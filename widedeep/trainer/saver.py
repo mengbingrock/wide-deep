@@ -143,11 +143,12 @@ class Saver():
             parents.append(parent_node)
 
         # 反射创建节点实例
+        print('!!!!!!!!!!!!!!!!!',node_name, node_type, parents, dim, kargs)
         if node_type == 'Tensor':
             assert dim is not None
 
             dim = tuple(dim)
-            return ClassMining.get_instance_by_subclass_name(Node, node_type)(*parents, dim=dim, name=node_name, **kargs)
+            return ClassMining.get_instance_by_subclass_name(Node, node_type)(*parents, shape=dim, name=node_name, **kargs)
         else:
             return ClassMining.get_instance_by_subclass_name(Node, node_type)(*parents, name=node_name, **kargs)
     
@@ -164,12 +165,18 @@ class Saver():
 
             # 判断是否创建了当前节点，如果已存在，更新其权值
             # 否则，创建节点
+            #print('from_model_json', from_model_json)
+            print('node_json', node_json)
             target_node = get_node_from_graph(node_name, graph=graph)
             if target_node is None:
                 print('Target node {} of type {} not exists, try to create the instance'.format(
                     node_json['name'], node_json['node_type']))
+                print('from_model_json', from_model_json)
+                print('node_json', node_json)
                 target_node = Saver.create_node(
                     graph, from_model_json, node_json)
+            else:
+                print('target_node {} is not none', target_node)
 
             target_node.outputs = weights
 

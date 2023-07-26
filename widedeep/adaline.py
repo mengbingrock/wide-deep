@@ -130,6 +130,7 @@ saver.save()
 
 saver.load(model_file_name='model.json', weights_file_name='weights.npz')
 
+
 x = get_node_from_graph("Tensor:0")
 pred = get_node_from_graph("Step:6")
 
@@ -140,6 +141,8 @@ for i in range(100):
     #for i in range(1):
 
     features = np.mat(train_set[i, :-1]).T
+    #print('features=',features)
+    print("===features.shape, value =",features.shape, features)
     x.set_value(features)
 
     # 在模型的predict节点上执行前向传播
