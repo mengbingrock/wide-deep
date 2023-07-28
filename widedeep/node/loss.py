@@ -10,10 +10,9 @@ class LossFunction(Node):
 class PerceptionLoss(LossFunction):
 
     def compute(self):
-        print('loss parent:', self.parents[0].outputs)
+        
         self.outputs = np.mat(np.where(self.parents[0].outputs >=0.0, 0.0, -self.parents[0].outputs))
-        print('label is')
-        print('loss is', self.outputs)
+        
 
     
     def get_jacobian(self, parent):

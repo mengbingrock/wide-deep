@@ -1,15 +1,22 @@
 import numpy as np
 import abc
 
-from .graph import default_graph
+import sys
+sys.path.append('..')
+
+from graph.graph import default_graph
 
 class Node:
     def __init__(self, *parents, **kargs):
         
         self.parents = list(parents)
         self.kargs = kargs
-        self.graph = kargs.get('graph', default_graph)
-        self.name = self.gen_node_name(**kargs)
+
+        if 'graph' not in kargs:
+            self.graph = default_graph
+        else:
+            self.graph = kargs['graph']
+        #self.name = self.gen_node_name(**kargs)
         self.name = self.__class__.__name__ + ':' +self.graph.node_count().__str__()
         print('Node name: {}'.format(self.name))
         self.need_save = kargs.get('need_save', True)
@@ -50,7 +57,7 @@ class Node:
         """
 
     @abc.abstractmethod
-    def get_jacobi(self, parent):
+    def get_jacobian(self, parent):
         """
         抽象方法，计算本节点对某个父节点的雅可比矩阵
         """
@@ -101,3 +108,23 @@ class Node:
         if recursive:
             for child in self.get_childs():
                 child.reset_value()
+
+
+class Tensor(Node):
+    def __init__(self, shape: list, init=False, trainable=True, **kargs) -> None:
+
+        Node.__init__(self, **kargs)
+        if init: self.outputs = np.mat(np.random.normal(0, 0.001, shape)) 
+        #else: self.outputs = np.mat(np.zeros(shape))
+        #self.numOfElements = np.prod(shape)
+        self.shape = shape
+        self.trainable = trainable
+
+
+    def set_value(self, value):
+        #print(value.shape)
+        #print(self.shape())
+        assert isinstance(value, np.matrix) and value.shape == self.shape
+        
+        self.reset_value()
+        self.outputs = value

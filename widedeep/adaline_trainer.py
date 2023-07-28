@@ -4,12 +4,24 @@ sys.path.append('.')
 
 import numpy as np
 #import widedeep as ms
+
+
+#from widedeep.node import *
+
+
+import argparse
+from trainer.trainer import SimpleTrainer
+
+
+import numpy as np
 from node.node import Tensor
 from node.ops import *
 from node.loss import *
-from graph.graph import (default_graph, get_node_from_graph)
-#from widedeep.node import *
+
+from trainer.optimizer import *
 from trainer.saver import Saver
+from graph.graph import (default_graph, get_node_from_graph)
+from node.metrics import *
 
 
 """
@@ -64,81 +76,56 @@ loss = PerceptionLoss(MatMul(label, output))
 # 学习率
 learning_rate = 0.0001
 
-# 训练执行50个epoch
-for epoch in range(3):
+# 优化器
+optimizer = GradientDescent(default_graph, loss, learning_rate)
 
-    # 遍历训练集中的样本
+accuracy = Accuracy(output, label)
+
+# 使用PS训练器，传入集群配置信息
+trainer = SimpleTrainer([x], label, loss, optimizer,
+                                        epoches=10, batch_size=10,
+                                        eval_on_train=True, metrics_ops=[accuracy],
+                                        )
+print('x.name=',x.name, 'train_set[:,:-1].shape=',train_set[:,:-1].shape, 'train_set[:,-1].shape=',train_set[:,-1].shape)
+
+trainer.train_and_eval({x.name: train_set[:,:-1]}, train_set[:, -1],
+                        {x.name: train_set[-10:-1,:-1]}, train_set[-10:-1, -1])
+
+#exporter = Exporter()
+#sig = exporter.signature('img_input', 'softmax_output')
+
+saver = Saver('.')
+saver.save(model_file_name='trainer_model.json', weights_file_name='trainer_weights.npz')
     
-    for i in range(len(train_set)):
-        #for i in range(1):
-        # 取第i个样本的前4列（除最后一列的所有列），构造3x1矩阵对象
-        features = np.mat(train_set[i, :-1]).T
 
-        # 取第i个样本的最后一列，是该样本的性别标签（1男，-1女），构造1x1矩阵对象
-        l = np.mat(train_set[i, -1])
-        print('l=',l)
+# 每个epoch结束后评价模型的正确率
+pred = []
 
-        # 将特征赋给x节点，将标签赋给label节点
-        x.set_value(features)
-        label.set_value(l)
-        
+# 遍历训练集，计算当前模型对每个样本的预测值
+for i in range(len(train_set)):
+#for i in range(1):
 
-        # 在loss节点上执行前向传播，计算损失值
-        #import pdb; pdb.set_trace() 
-        loss.forward()
+    features = np.mat(train_set[i, :-1]).T
+    x.set_value(features)
 
-        # 在w和b节点上执行反向传播，计算损失值对它们的雅可比矩阵
-        w.backward(loss)
-        b.backward(loss)
+    # 在模型的predict节点上执行前向传播
+    predict.forward()
+    pred.append(predict.outputs[0, 0])  # 模型的预测结果：1男，0女
 
-        """
-        用损失值对w和b的雅可比矩阵（梯度的转置）更新参数值。我们想优化的节点
-        都应该是标量节点（才有所谓降低其值一说），它对变量节点的雅可比矩阵的
-        形状都是1 x n。这个雅可比的转置是结果节点对变量节点的梯度。将梯度再
-        reshape成变量矩阵的形状，对应位置上就是结果节点对变量元素的偏导数。
-        将改变形状后的梯度乘上学习率，从当前变量值中减去，再赋值给变量节点，
-        完成梯度下降更新。
-        """
+pred = np.array(pred) * 2 - 1  # 将1/0结果转化成1/-1结果，好与训练标签的约定一致
+#print('======pred:', pred)
+# 判断预测结果与样本标签相同的数量与训练集总数量之比，即模型预测的正确率
+accuracy = (train_set[:, -1] == pred).astype(np.int).sum() / len(train_set)
 
-        w.set_value(w.outputs - learning_rate * w.jacobian.T.reshape(w.shape))
-        b.set_value(b.outputs - learning_rate * b.jacobian.T.reshape(b.shape))
+# 打印当前epoch数和模型在训练集上的正确率
 
-        # default_graph对象保存了所有节点，调用clear_jacobi方法清除所有节点的雅可比矩阵
-        default_graph.clear_jacobian()
-        
-
-    # 每个epoch结束后评价模型的正确率
-    pred = []
-
-    # 遍历训练集，计算当前模型对每个样本的预测值
-    for i in range(len(train_set)):
-    #for i in range(1):
-
-        features = np.mat(train_set[i, :-1]).T
-        x.set_value(features)
-
-        # 在模型的predict节点上执行前向传播
-        predict.forward()
-
-        
-
-        pred.append(predict.outputs[0, 0])  # 模型的预测结果：1男，0女
-
-    pred = np.array(pred) * 2 - 1  # 将1/0结果转化成1/-1结果，好与训练标签的约定一致
-    #print('======pred:', pred)
-    # 判断预测结果与样本标签相同的数量与训练集总数量之比，即模型预测的正确率
-    accuracy = (train_set[:, -1] == pred).astype(np.int).sum() / len(train_set)
-
-    # 打印当前epoch数和模型在训练集上的正确率
-    print("epoch: {:d}, accuracy: {:.3f}".format(epoch + 1, accuracy))
 
 # 保存模型
 saver = Saver('.')
 
 saver.save()
 
-saver.load(model_file_name='model.json', weights_file_name='weights.npz')
-
+saver.load(model_file_name='trainer_model.json', weights_file_name='trainer_weights.npz')
 
 x = get_node_from_graph("Tensor:0")
 pred = get_node_from_graph("Step:6")
@@ -151,13 +138,13 @@ for i in range(100):
 
     features = np.mat(train_set[i, :-1]).T
     #print('features=',features)
-    print("===features.shape, value =",features.shape, features)
+    #print("===features.shape, value =",features.shape, features)
     x.set_value(features)
 
     # 在模型的predict节点上执行前向传播
     pred.forward()
 
-    print('outputs=', output.outputs)
+    print('outputs, pred', output.outputs, pred.outputs[0, 0])
 
     preds.append(pred.outputs[0, 0])
 

@@ -1,11 +1,11 @@
 import sys
-#sys.path.append('..')
+sys.path.append('..')
 
 import numpy as np
 #import widedeep as ms
-from node import *
+from node.node import *
 import json
-
+from graph.graph import default_graph
 import os
 import datetime
 
@@ -52,11 +52,14 @@ def get_node_from_graph(node_name, name_scope=None, graph=None):
 class Saver():
 
     def __init__(self, root_dir = '.'):
+
         self.root_dir = root_dir
+        if not os.path.exists(self.root_dir):
+            os.makedirs(self.root_dir)
 
 
-    def save(self):
-        self._save_model_and_weights(default_graph, self.root_dir + '/model.json', self.root_dir + '/weights.npz')
+    def save(self, model_file_name='model.json', weights_file_name='weights.npz'):
+        self._save_model_and_weights(default_graph, model_file_name, weights_file_name)
 
 
     def _save_model_and_weights(self, graph, model_file_name, weights_file_name):
@@ -99,6 +102,8 @@ class Saver():
 
         # json格式保存计算图元信息
         model_file_path = os.path.join(self.root_dir, model_file_name)
+
+        print('======model_file_path', model_file_path)
         with open(model_file_path, 'w') as model_file:
             json.dump(model_json, model_file, indent=4)
             print('Save model into file: {}'.format(model_file.name))
