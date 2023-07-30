@@ -76,7 +76,7 @@ for epoch in range(3):
 
         # 取第i个样本的最后一列，是该样本的性别标签（1男，-1女），构造1x1矩阵对象
         l = np.mat(train_set[i, -1])
-        print('l=',l)
+        #print('l=',l)
 
         # 将特征赋给x节点，将标签赋给label节点
         x.set_value(features)
@@ -119,9 +119,6 @@ for epoch in range(3):
 
         # 在模型的predict节点上执行前向传播
         predict.forward()
-
-        
-
         pred.append(predict.outputs[0, 0])  # 模型的预测结果：1男，0女
 
     pred = np.array(pred) * 2 - 1  # 将1/0结果转化成1/-1结果，好与训练标签的约定一致

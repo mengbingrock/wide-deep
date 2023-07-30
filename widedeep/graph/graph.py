@@ -45,7 +45,9 @@ def get_trainable_variables_from_graph(node_name=None, name_scope=None, graph=No
     if graph is None:
         graph = default_graph
     if node_name is None:
-        from ..node.node import Tensor
+        import sys
+        sys.path.append('..')
+        from node.node import Tensor
         return [node for node in graph.nodes if isinstance(node, Tensor) and node.trainable]
 
     if name_scope:
