@@ -1,40 +1,29 @@
-#include <base/base.h>
-#include<base/tick.h>
-#include<glog/logging.h>
-#include "model/llama3.h"
 
-// define generate function
+#include <glog/logging.h>
+#include <iostream>
+#include <memory>
+#include "base/alloc.h"
+#include "base/buffer.h"
+#include "model/llama2.h"
+#include "tensor/tensor.h"
+#include "base/tick.h"
+int main(int argc, char* argv[]) {
+  if (argc != 3) {
+    LOG(INFO) << "Usage: ./demo checkpoint_path tokenizer_path ";
+    return -1;
+  }
+  std::shared_ptr<base::CPUDeviceAllocator> alloc =
+      std::make_shared<base::CPUDeviceAllocator>();
 
-
-
-
-
-int main(int argc, char* argv[])
-{
-    if (argc != 3) {
-        LOG(INFO) << "Usage: demo checkpoint_path, token_path";
-        return -1;
-    }
-
-    const char* checkpoint_path = argv[1];
-    const char* token_path = argv[2];
-
-    model::LLama2Model model(base::TokenizerType::KEncodeSpe, tokenizer_path, checkpoint_path, false);
-    auto init_status = model.init(base::DeviceType::kDeviceCUDA);
-    if (!init_status) {
-        LOG(FATAL) << "Failed to init model: " << init_status.get_err_msg();
-        
-    }
-
-    const std::string$ sentence = "a";
-    auto start = std::chrono::steady_clock::now();
-    printf("Generating...\n");
-    fflush(stdout);
-    int steps = generate(model, sentence, 128, true);
-    auto end = std::chrono::steady_clock::now();
-    auto duration = std::chrono::duration<double>(end - start).count();
-    printf("Generated %d tokens in %.2f seconds\n", static_cast<double>steps/duration);
-
-    fflush(stdout);
-    return 0;
+  const char* checkpoint_path = argv[1];  // e.g. out/model.bin
+  const char* tokenizer_path = argv[2];
+  model::LLama2Model model(tokenizer_path, checkpoint_path);
+  model.init(base::DeviceType::kDeviceCPU);
+  std::string sentence = "Hi everyone";
+  const auto& tokens = model.encode(sentence);
+  TICK(A)
+  const auto s = model.forward(tokens, 32);
+  TOCK(A)
+  LOG(INFO) << s;
+  return 0;
 }
