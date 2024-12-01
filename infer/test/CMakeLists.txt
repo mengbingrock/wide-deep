@@ -1,22 +1,15 @@
-
 find_package(GTest REQUIRED)
 find_package(glog REQUIRED)
 
 set(link_ext_lib glog::glog GTest::gtest)
-
-
-
-# Add debug symbols
-set(CMAKE_BUILD_TYPE Debug)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O0")
-
-add_executable(test_llm test_main.cpp test_buffer.cpp test_math.cpp)
+add_executable(test_llm test_main.cpp test_tensor.cpp test_buffer.cpp test_add.cpp test_math.cpp)
 
 target_link_libraries(test_llm ${link_ext_lib})
 target_include_directories(test_llm PUBLIC ${glog_INCLUDE_DIR})
 target_include_directories(test_llm PUBLIC ${GTest_INCLUDE_DIR})
 
-target_include_directories(test_llm PUBLIC ../inference/include)
+target_include_directories(test_llm PUBLIC ../kuiper/include)
 target_link_directories(test_llm PUBLIC ${PROJECT_SOURCE_DIR}/lib)
 target_link_libraries(test_llm llama)
+
 set_target_properties(test_llm PROPERTIES WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})

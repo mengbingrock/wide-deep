@@ -10,6 +10,17 @@ TEST(test_buffer, allocate) {
   ASSERT_NE(buffer.ptr(), nullptr);
 }
 
+TEST(test_buffer, allocate2) {
+  using namespace base;
+  auto alloc = base::CPUDeviceAllocatorFactory::get_instance();
+  std::shared_ptr<Buffer> buffer;
+  {
+  buffer = std::make_shared<Buffer>(32, alloc);
+  }
+  LOG(INFO) << "buffer is out of scope";
+  ASSERT_NE(buffer->ptr(), nullptr);
+}
+
 TEST(test_buffer, use_external) {
   using namespace base;
   auto alloc = base::CPUDeviceAllocatorFactory::get_instance();
