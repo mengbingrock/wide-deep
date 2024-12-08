@@ -1,5 +1,6 @@
 #ifndef KUIPER_INCLUDE_OP_LAYER_H_
 #define KUIPER_INCLUDE_OP_LAYER_H_
+#include <base/cuda_config.h>
 #include <string>
 #include <utility>
 #include <vector>
@@ -7,6 +8,9 @@
 #include "tensor/tensor.h"
 
 namespace op {
+  
+class Layer;
+
 enum class LayerType : uint8_t {
   kLayerUnknown = 0,
   kLayerLinear = 1,
@@ -32,27 +36,27 @@ class BaseLayer {
 
   virtual base::Status init() = 0;
 
-  virtual base::Status base_forward() = 0;
+  virtual base::Status forward() = 0;
 
-  virtual base::Status forward_i1o1(const tensor::Tensor& input1,
+  virtual base::Status forward(const tensor::Tensor& input1,
                                     const tensor::Tensor& output1) = 0;
 
-  virtual base::Status forward_i2o1(const tensor::Tensor& input1,
+  virtual base::Status forward(const tensor::Tensor& input1,
                                     const tensor::Tensor& input2,
                                     const tensor::Tensor& output1) = 0;
 
-  virtual base::Status forward_i3o1(const tensor::Tensor& input1,
+  virtual base::Status forward(const tensor::Tensor& input1,
                                     const tensor::Tensor& input2,
                                     const tensor::Tensor& input3,
                                     const tensor::Tensor& output1) = 0;
 
-  virtual base::Status forward_i4o1(const tensor::Tensor& input1,
+  virtual base::Status forward(const tensor::Tensor& input1,
                                     const tensor::Tensor& input2,
                                     const tensor::Tensor& input3,
                                     const tensor::Tensor& input4,
                                     const tensor::Tensor& output1) = 0;
 
-  virtual base::Status forward_i5o1(const tensor::Tensor& input1,
+  virtual base::Status forward(const tensor::Tensor& input1,
                                     const tensor::Tensor& input2,
                                     const tensor::Tensor& input3,
                                     const tensor::Tensor& input4,
@@ -77,6 +81,12 @@ class BaseLayer {
 
   virtual const tensor::Tensor& get_output(int32_t idx) const = 0;
 
+  virtual base::Status set_weight(int32_t idx, const tensor::Tensor& weight);
+
+  virtual base::Status set_weight(int32_t idx, const std::vector<int32_t>& dims,
+                                  const float* weight_ptr,
+                                  base::DeviceType device_type = base::DeviceType::kDeviceUnknown);
+
   const std::string& get_layer_name() const;
 
   void set_layer_name(const std::string& layer_name);
@@ -91,6 +101,13 @@ class BaseLayer {
   base::DataType data_type_ = base::DataType::kDataTypeUnknown;
   base::DeviceType device_type_ = base::DeviceType::kDeviceUnknown;
 };
+
+
+
+
+
+
+
 
 class Layer : public BaseLayer {
  public:
@@ -108,23 +125,23 @@ class Layer : public BaseLayer {
 
   base::Status check() const override;
 
-  base::Status base_forward() override;
+  base::Status forward() override;
 
-  base::Status forward_i1o1(const tensor::Tensor& input1,
+  base::Status forward(const tensor::Tensor& input1,
                             const tensor::Tensor& output1) override;
 
-  base::Status forward_i2o1(const tensor::Tensor& input1, const tensor::Tensor& input2,
+  base::Status forward(const tensor::Tensor& input1, const tensor::Tensor& input2,
                             const tensor::Tensor& output1) override;
 
-  base::Status forward_i3o1(const tensor::Tensor& input1, const tensor::Tensor& input2,
+  base::Status forward(const tensor::Tensor& input1, const tensor::Tensor& input2,
                             const tensor::Tensor& input3,
                             const tensor::Tensor& output1) override;
 
-  base::Status forward_i4o1(const tensor::Tensor& input1, const tensor::Tensor& input2,
+  base::Status forward(const tensor::Tensor& input1, const tensor::Tensor& input2,
                             const tensor::Tensor& input3, const tensor::Tensor& input4,
                             const tensor::Tensor& output1) override;
 
-  base::Status forward_i5o1(const tensor::Tensor& input1, const tensor::Tensor& input2,
+  base::Status forward(const tensor::Tensor& input1, const tensor::Tensor& input2,
                             const tensor::Tensor& input3, const tensor::Tensor& input4,
                             const tensor::Tensor& input5,
                             const tensor::Tensor& output1) override;
@@ -149,10 +166,20 @@ class Layer : public BaseLayer {
 
   void reset_output_size(size_t size);
 
- private:
+  virtual void to_cuda();
+
+  void set_cuda_config(std::shared_ptr<kernel::CudaConfig> config);
+
+  std::shared_ptr<kernel::CudaConfig> cuda_config() const;
+
+ protected:
   std::vector<tensor::Tensor> inputs_;
   std::vector<tensor::Tensor> outputs_;
+  std::shared_ptr<kernel::CudaConfig> cuda_config_;
 };
+
+
+
 
 class LayerFp32Param : public Layer {
  public:
@@ -167,15 +194,13 @@ class LayerFp32Param : public Layer {
 
   const tensor::Tensor& get_weight(int32_t idx) const;
 
-  void set_weight(int32_t idx, const tensor::Tensor& weight);
+  base::Status set_weight(int32_t idx, const tensor::Tensor& weight);
 
-  void set_weight(int32_t idx, const std::vector<int32_t>& dims, const float* weight_ptr,
-                  base::DeviceType device_type = base::DeviceType::kDeviceUnknown);
+  base::Status set_weight(int32_t idx, const std::vector<int32_t>& dims, const float* weight_ptr,
+                  base::DeviceType device_type = base::DeviceType::kDeviceUnknown) override;
 
  private:
   std::vector<tensor::Tensor> weights_;
-  std::vector<tensor::Tensor> inputs_;
-  std::vector<tensor::Tensor> outputs_;
-};
+ };
 }  // namespace op
 #endif  // KUIPER_INCLUDE_OP_LAYER_H_

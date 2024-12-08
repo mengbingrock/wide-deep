@@ -2,6 +2,7 @@
 #ifndef LLAMA_INFER_INCLUDE_OP_SWIGLU_H_
 #define LLAMA_INFER_INCLUDE_OP_SWIGLU_H_
 #include "layer.h"
+#include <base/cuda_config.h>
 namespace op {
 class SwiGLULayer : public op::Layer {
  public:
@@ -9,7 +10,7 @@ class SwiGLULayer : public op::Layer {
 
   base::Status check() const override;
 
-  base::Status base_forward() override;
+  base::Status forward() override;
 
  private:
   int32_t hidden_dim_ = 0;

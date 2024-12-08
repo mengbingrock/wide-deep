@@ -1,6 +1,7 @@
 #ifndef KUIPER_INCLUDE_MODEL_LLAMA_H_
 #define KUIPER_INCLUDE_MODEL_LLAMA_H_
 #include <map>
+#include <base/cuda_config.h>
 #include "model.h"
 #include "op/add.h"
 #include "op/embedding.h"
@@ -8,31 +9,27 @@
 #include "op/swiglu.h"
 namespace model {
 
-struct EmbeddingOutput {
-  tensor::Tensor input_tokens;
-  tensor::Tensor input_embeddings;
-  tensor::Tensor input_token_num;
-};
 
 struct LLama2Layers {
-  std::shared_ptr<op::VecAddLayer> add_layer_;
-  std::shared_ptr<op::RoPELayer> rope_layer_;
-  std::shared_ptr<op::SwiGLULayer> swiglu_layer_;
+  std::shared_ptr<op::Layer> add_layer_;
+  std::shared_ptr<op::Layer> rope_layer_;
+  std::shared_ptr<op::Layer> swiglu_layer_;
 
-  std::vector<std::shared_ptr<op::MultiHeadAttention>> mha_layers_;
-  std::vector<std::shared_ptr<op::MatmulLayer>> wq_layers_;
-  std::vector<std::shared_ptr<op::MatmulLayer>> wk_layers_;
-  std::vector<std::shared_ptr<op::MatmulLayer>> wv_layers_;
-  std::vector<std::shared_ptr<op::MatmulLayer>> wo_layers_;
+  std::vector<std::shared_ptr<op::Layer>> mha_layers_;
+  std::vector<std::shared_ptr<op::Layer>> wq_layers_;
+  std::vector<std::shared_ptr<op::Layer>> wk_layers_;
+  std::vector<std::shared_ptr<op::Layer>> wv_layers_;
+  std::vector<std::shared_ptr<op::Layer>> wo_layers_;
 
-  std::vector<std::shared_ptr<op::MatmulLayer>> w1_layers_;
-  std::vector<std::shared_ptr<op::MatmulLayer>> w2_layers_;
-  std::vector<std::shared_ptr<op::RmsNormLayer>> rmsnorm_layers_;
-  std::vector<std::shared_ptr<op::MatmulLayer>> w3_layers_;
-  std::shared_ptr<op::MatmulLayer> cls_layer_;
+  std::vector<std::shared_ptr<op::Layer>> w1_layers_;
+  std::vector<std::shared_ptr<op::Layer>> w2_layers_;
+  std::vector<std::shared_ptr<op::Layer>> rmsnorm_layers_;
+  std::vector<std::shared_ptr<op::Layer>> w3_layers_;
+  std::shared_ptr<op::Layer> cls_layer_;
 
-  std::shared_ptr<op::EmbeddingLayer> embedding_layer_;
-};
+  std::shared_ptr<op::Layer> embedding_layer_;
+
+  void to_cuda(std::shared_ptr<kernel::CudaConfig> config);
 
 class LLama2Model : public Model {
  public:
@@ -40,12 +37,21 @@ class LLama2Model : public Model {
 
   base::Status init(base::DeviceType device_type) override;
 
-  base::Status forward(const std::vector<int>& tokens, int32_t total_steps) override;
+  base::Status forward(const tensor::Tensor& input, const tensor::Tensor& pos_tensor, bool is_prompt, int& next) override;
 
   std::vector<int32_t> encode(const std::string& sentence) const override;
 
-  std::pair<tensor::Tensor, tensor::Tensor> slice_kv_cache(
-      int32_t layer_idx, int32_t token_pos) const override;
+  int32_t get_eos() override;
+
+  std::string decode(int32_t token_idx) const override;
+
+  std::pair<tensor::Tensor, tensor::Tensor> slice_kv_cache(int32_t layer_idx,
+                                                           int32_t token_pos) const override;
+
+  op::EmbeddingOutput embedding(const std::vector<int>& tokens) const;
+
+  tensor::Tensor fill_input(const tensor::Tensor& pos_tensor,
+                            const op::EmbeddingOutput& embedding_output, bool is_prompt) const;
 
  private:
   void init_mem() override;
@@ -58,24 +64,18 @@ class LLama2Model : public Model {
 
   void attention_mha(int32_t layer_idx, const tensor::Tensor& pos_tensor) const;
 
-  EmbeddingOutput embedding(const std::vector<int>& tokens) const;
-
   void attention_rms(int32_t layer_idx, const tensor::Tensor& input) const;
 
   void feed_forward(int32_t layer_idx, const tensor::Tensor& input) const;
-
-  void fill_input(int32_t next, const tensor::Tensor& pos_tensor,
-                  const std::vector<int32_t>& tokens, tensor::Tensor& input,
-                  const EmbeddingOutput& embedding_output) const;
 
   void attention_qkv(int32_t layer_idx, const tensor::Tensor& pos_tensor) const;
 
   void cls_logits(const tensor::Tensor& input) const;
 
-  std::string post_processing(int32_t pos, int32_t& next,
-                              const std::vector<int32_t>& tokens) const override;
+  int32_t post_processing(const tensor::Tensor& pos, bool is_prompt) const override;
 
  private:
+  std::shared_ptr<kernel::CudaConfig> cuda_config_;
   std::unique_ptr<LLama2Layers> llama_layers_;
 };
 }  // namespace model

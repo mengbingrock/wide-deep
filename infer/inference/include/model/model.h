@@ -14,7 +14,6 @@
 #include "sampler/argmax_sampler.h"
 #include "sentencepiece_processor.h"
 #include "tensor/tensor.h"
-#include "config.h"
 
 namespace model {
 enum class ModelBufferType {
@@ -32,9 +31,8 @@ enum class ModelBufferType {
   kW2Output = 11,
   kW3Output = 12,
   kFFNRMSNorm = 13,
-  kKeyStorage = 14,
-
   kForwardOutput = 15,
+  kForwardOutputCPU = 16,
 };
 
 struct RawModelData {
@@ -52,12 +50,13 @@ struct RawModelData {
 
 class Model {
  public:
-  explicit Model(base::ModelType model_type, std::string token_path,
-                 std::string model_path);
+  explicit Model(base::ModelType model_type, std::string token_path, std::string model_path);
 
   virtual base::Status init(base::DeviceType device_type) = 0;
 
-  virtual base::Status forward(const std::vector<int>& tokens, int start_pos) = 0;
+  virtual base::Status forward(const tensor::Tensor& input, const tensor::Tensor& pos_tensor, bool is_prompt, int& next) = 0;
+
+  virtual int32_t get_eos() = 0;
 
   base::ModelType model_type() const;
 
@@ -65,15 +64,16 @@ class Model {
 
   const std::string& model_path() const;
 
- protected:
   virtual tensor::Tensor& get_buffer(ModelBufferType buffer_idx);
 
   virtual const tensor::Tensor& get_buffer(ModelBufferType buffer_idx) const;
 
-  virtual base::Status insert_buffer(ModelBufferType buffer_idx,
-                                     const tensor::Tensor& tensor);
+  virtual std::string decode(int32_t token_idx) const = 0;
+
 
  protected:
+  virtual base::Status insert_buffer(ModelBufferType buffer_idx, const tensor::Tensor& tensor);
+
   virtual base::Status read_model_file();
 
   virtual base::Status create_encode_layer();
@@ -82,8 +82,7 @@ class Model {
 
   virtual base::Status generate_model_infos(const ModelConfig& config) const;
 
-  virtual std::string post_processing(int32_t pos, int32_t& next,
-                                      const std::vector<int32_t>& tokens) const = 0;
+  virtual int32_t post_processing(const tensor::Tensor& pos, bool is_prompt) const = 0;
 
  private:
   virtual void init_mem() = 0;

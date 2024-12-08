@@ -6,6 +6,8 @@
 #include <vector>
 #include "base/base.h"
 #include "base/buffer.h"
+#include <driver_types.h>
+
 namespace tensor {
 
 class Tensor {
@@ -31,13 +33,14 @@ class Tensor {
                   std::shared_ptr<base::DeviceAllocator> alloc = nullptr,
                   void* ptr = nullptr);
 
-  explicit Tensor(base::DataType data_type, std::vector<int32_t> dims);
+  void to_cpu();
 
-  // void to_cpu();
-
-  // void to_cuda();
+  void to_cuda(cudaStream_t stream, int u = 31);
 
   bool is_empty() const;
+
+  void init_buffer(std::shared_ptr<base::DeviceAllocator> alloc, base::DataType data_type,
+                   bool need_alloc, void* ptr);
 
   template <typename T>
   T* ptr();
@@ -67,7 +70,7 @@ class Tensor {
 
   void reset(base::DataType data_type, const std::vector<int32_t>& dims);
 
-  void set_device_type(base::DeviceType device_type);
+  void set_device_type(base::DeviceType device_type) const;
 
   base::DeviceType device_type() const;
 
