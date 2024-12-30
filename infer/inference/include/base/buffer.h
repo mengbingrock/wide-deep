@@ -1,4 +1,3 @@
-
 #ifndef KUIPER_INCLUDE_BASE_BUFFER_H_
 #define KUIPER_INCLUDE_BASE_BUFFER_H_
 #include <memory>

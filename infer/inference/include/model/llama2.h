@@ -1,6 +1,5 @@
 #ifndef KUIPER_INCLUDE_MODEL_LLAMA_H_
 #define KUIPER_INCLUDE_MODEL_LLAMA_H_
-#include <map>
 #include <base/cuda_config.h>
 #include "model.h"
 #include "op/add.h"
@@ -8,7 +7,6 @@
 #include "op/rope.h"
 #include "op/swiglu.h"
 namespace model {
-
 
 struct LLama2Layers {
   std::shared_ptr<op::Layer> add_layer_;
@@ -30,6 +28,7 @@ struct LLama2Layers {
   std::shared_ptr<op::Layer> embedding_layer_;
 
   void to_cuda(std::shared_ptr<kernel::CudaConfig> config);
+};
 
 class LLama2Model : public Model {
  public:
@@ -37,7 +36,8 @@ class LLama2Model : public Model {
 
   base::Status init(base::DeviceType device_type) override;
 
-  base::Status forward(const tensor::Tensor& input, const tensor::Tensor& pos_tensor, bool is_prompt, int& next) override;
+  base::Status forward(const tensor::Tensor& input, const tensor::Tensor& pos_tensor,
+                       bool is_prompt, int& next) override;
 
   std::vector<int32_t> encode(const std::string& sentence) const override;
 

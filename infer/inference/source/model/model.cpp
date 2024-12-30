@@ -174,12 +174,13 @@ base::Status Model::gen_model_from_file() {
   config_ = std::make_unique<TransformerConfig>();
 
   // init s entence piece processor
+  // google sentence piece
   auto create_encode_status = create_encode_layer();
   if (!create_encode_status) {
     LOG(ERROR) << "Create the encode layer failed!";
     return create_encode_status;
   }
-
+  // mmap
   auto mmap_status = read_model_file();
   if (!mmap_status) {
     LOG(ERROR) << "Handle model file " << model_path_ << " failed!";

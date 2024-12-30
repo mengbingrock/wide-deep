@@ -1,6 +1,6 @@
 
 #include "op/add.h"
-#include "kernels/add_kernel.h"
+#include "kernels/kernels_interface.h"
 namespace op {
 VecAddLayer::VecAddLayer(base::DeviceType device_type)
     : Layer(device_type, LayerType::kLayerAdd, "Add") {
@@ -10,7 +10,7 @@ VecAddLayer::VecAddLayer(base::DeviceType device_type)
 
 base::Status VecAddLayer::check() const {
   tensor::Tensor input1 = this->get_input(0);
-  tensor::Tensor input2 = this->get_input(0);
+  tensor::Tensor input2 = this->get_input(1);
   int32_t size = input1.size();
   base::Status status;
   status = check_tensor_with_dim(input1, device_type_, data_type_, size);
@@ -33,7 +33,7 @@ base::Status VecAddLayer::check() const {
   return base::error::Success();
 }
 
-base::Status VecAddLayer::base_forward() {
+base::Status VecAddLayer::forward() {
   auto status = this->check();
   if (!status) {
     return status;
@@ -41,7 +41,11 @@ base::Status VecAddLayer::base_forward() {
   auto input1 = this->get_input(0);
   auto input2 = this->get_input(1);
   auto output = this->get_output(0);
-  kernel::get_add_kernel(device_type_)(input1, input2, output);
+  if (device_type_ == base::DeviceType::kDeviceCUDA) {
+    CHECK(cuda_config_ != nullptr);
+  }
+  kernel::get_add_kernel(device_type_)(input1, input2, output,
+                                       cuda_config_ ? cuda_config_->stream : nullptr);
   return base::error::Success();
 }
 

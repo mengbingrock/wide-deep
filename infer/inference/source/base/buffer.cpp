@@ -16,10 +16,8 @@ Buffer::Buffer(size_t byte_size, std::shared_ptr<DeviceAllocator> allocator, voi
 }
 
 Buffer::~Buffer() {
-  printf("Buffer::~Buffer() called !!!!! \n");
   if (!use_external_) {
     if (ptr_ && allocator_) {
-      LOG(INFO) << "Release...";
       allocator_->release(ptr_);
       ptr_ = nullptr;
     }
@@ -84,9 +82,6 @@ void Buffer::copy_from(const Buffer& buffer) const {
 }
 
 void Buffer::copy_from(const Buffer* buffer) const {
-  if (!buffer) {
-    return;
-  }
   CHECK(allocator_ != nullptr);
   CHECK(buffer != nullptr || buffer->ptr_ != nullptr);
 

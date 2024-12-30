@@ -1,5 +1,6 @@
 #include "op/embedding.h"
-#include "kernels/emb_kernel.h"
+#include "kernels/cpu/emb_kernel.h"
+#include "kernels/kernels_interface.h"
 #include "op/layer.h"
 namespace op {
 EmbeddingLayer::EmbeddingLayer(base::DeviceType device_type, int32_t dim, int32_t seq_len,
@@ -21,7 +22,7 @@ base::Status EmbeddingLayer::check() const {
         "The number of input tensor is greater than seq len.");
   }
 
-  base::Status status = check_tensor_with_dim(input_tensor, device_type_,
+  base::Status status = check_tensor_with_dim(input_tensor, base::DeviceType::kDeviceCPU,
                                               base::DataType::kDataTypeInt32, token_size);
   if (!status) {
     LOG(ERROR) << "The input tensor error in the embedding layer.";
@@ -43,13 +44,17 @@ base::Status EmbeddingLayer::check() const {
   return base::error::Success();
 }
 
-base::Status EmbeddingLayer::base_forward() {
+base::Status EmbeddingLayer::forward() {
   base::Status status = check();
   if (!status) {
     return status;
   }
+  if (device_type_ == base::DeviceType::kDeviceCUDA) {
+    CHECK(cuda_config_ != nullptr);
+  }
   kernel::get_emb_kernel(device_type_)(get_input(0), get_weight(0), get_output(0),
-                                       vocab_size_);
+                                       vocab_size_,
+                                       cuda_config_ ? cuda_config_->stream : nullptr);
   return base::StatusCode::kSuccess;
 }
 }  // namespace op

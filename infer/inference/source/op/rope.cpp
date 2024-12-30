@@ -1,7 +1,7 @@
-
 #include "op/rope.h"
 #include <cmath>
-#include "kernels/rope_kernel.h"
+#include "kernels/cpu/rope_kernel.h"
+#include "kernels/kernels_interface.h"
 namespace op {
 RoPELayer::RoPELayer(base::DeviceType device_type, int32_t dim, int32_t kv_dim,
                      int32_t head_size)
@@ -13,7 +13,7 @@ RoPELayer::RoPELayer(base::DeviceType device_type, int32_t dim, int32_t kv_dim,
   reset_output_size(1);
 }
 
-base::Status RoPELayer::base_forward() {
+base::Status RoPELayer::forward() {
   base::Status status = check();
   if (!status) {
     return status;
@@ -22,13 +22,18 @@ base::Status RoPELayer::base_forward() {
   tensor::Tensor input_q = this->get_input(0);
   tensor::Tensor input_k = this->get_input(1);
   tensor::Tensor input_pos = this->get_input(2);
+  if (device_type_ == base::DeviceType::kDeviceCUDA) {
+    CHECK(cuda_config_ != nullptr);
+  }
   kernel::get_rope_kernel(device_type_)(dim_, kv_dim_, head_size_, input_q, input_k,
-                                        input_pos);
+                                        input_pos,
+                                        cuda_config_ ? cuda_config_->stream : nullptr);
   return base::error::Success();
 }
 
 base::Status RoPELayer::check() const {
-  auto status = check_tensor_with_dim(get_input(2), device_type_,
+  // pos tensor
+  auto status = check_tensor_with_dim(get_input(2), base::DeviceType::kDeviceCPU,
                                       base::DataType::kDataTypeInt32, 1);
   if (!status) {
     LOG(ERROR) << "The input tensor 2 error in the add layer.";

@@ -1,6 +1,6 @@
-
 #include "op/mha.h"
-#include "kernels/mha_kernel.h"
+#include "kernels/cpu/mha_kernel.h"
+#include "kernels/kernels_interface.h"
 namespace op {
 MultiHeadAttention::MultiHeadAttention(base::DeviceType device_type, int32_t layer_index,
                                        int32_t kv_mul, int32_t kv_dim, int32_t seq_len,
@@ -16,7 +16,7 @@ MultiHeadAttention::MultiHeadAttention(base::DeviceType device_type, int32_t lay
   reset_output_size(1);
 }
 
-base::Status MultiHeadAttention::base_forward() {
+base::Status MultiHeadAttention::forward() {
   auto status = check();
   if (!status) {
     return status;
@@ -26,25 +26,27 @@ base::Status MultiHeadAttention::base_forward() {
   const tensor::Tensor& score_tensor = this->get_input(1);
   const tensor::Tensor& key_cache_tensor = this->get_input(2);
   const tensor::Tensor& value_cache_tensor = this->get_input(3);
-  const tensor::Tensor& key_tensor = this->get_input(4);
-  kernel::get_mha_kernel(device_type_)(
-      pos_, head_num_, layer_index_, seq_len_, kv_dim_, kv_mul_, head_size_, mha_out,
-      query_tensor, score_tensor, key_cache_tensor, value_cache_tensor, key_tensor);
+
+  if (device_type_ == base::DeviceType::kDeviceCUDA) {
+    CHECK(cuda_config_ != nullptr);
+  }
+  kernel::get_mha_kernel(base::DeviceType::kDeviceCPU)(
+      pos_, head_num_, layer_index_, seq_len_, kv_dim_, kv_mul_, head_size_, mha_out, query_tensor,
+      score_tensor, key_cache_tensor, value_cache_tensor, device_type_,
+      cuda_config_ ? cuda_config_.get() : nullptr);
   return base::error::Success();
 }
 
-void MultiHeadAttention::set_pos(int32_t pos) {
-  this->pos_ = pos;
-}
+void MultiHeadAttention::set_pos(int32_t pos) { this->pos_ = pos; }
 
 base::Status MultiHeadAttention::check() const {
   base::Status status;
-  const int32_t input_tensor_num = 5;
+  const int32_t input_tensor_num = 4;
   for (int32_t i = 0; i < input_tensor_num; ++i) {
+    // mha score tensor
     status = check_tensor(get_input(i), device_type_, data_type_);
     if (!status) {
-      LOG(ERROR) << "The input tensor " << std::to_string(i)
-                 << " error in the matmul layer.";
+      LOG(ERROR) << "The input tensor " << std::to_string(i) << " error in the matmul layer.";
       return status;
     }
   }

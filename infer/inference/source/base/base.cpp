@@ -28,7 +28,9 @@ bool Status::operator!=(int code) const {
 
 Status::operator int() const { return code_; }
 
-Status::operator bool() const { return code_ == kSuccess; }
+Status::operator bool() const {
+  return code_ == kSuccess;
+}
 
 int32_t Status::get_err_code() const {
   return code_;

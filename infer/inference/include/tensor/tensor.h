@@ -1,13 +1,13 @@
+
 #ifndef KUIPER_INCLUDE_TENSOR_TENSOR_H_
 #define KUIPER_INCLUDE_TENSOR_TENSOR_H_
+#include <driver_types.h>
 #include <glog/logging.h>
 #include <armadillo>
 #include <memory>
 #include <vector>
 #include "base/base.h"
 #include "base/buffer.h"
-#include <driver_types.h>
-
 namespace tensor {
 
 class Tensor {
@@ -15,23 +15,21 @@ class Tensor {
   explicit Tensor() = default;
 
   explicit Tensor(base::DataType data_type, int32_t dim0, bool need_alloc = false,
-                  std::shared_ptr<base::DeviceAllocator> alloc = nullptr,
-                  void* ptr = nullptr);
+                  std::shared_ptr<base::DeviceAllocator> alloc = nullptr, void* ptr = nullptr);
 
-  explicit Tensor(base::DataType data_type, int32_t dim0, int32_t dim1,
-                  bool need_alloc = false,
-                  std::shared_ptr<base::DeviceAllocator> alloc = nullptr,
-                  void* ptr = nullptr);
+  explicit Tensor(base::DataType data_type, int32_t dim0, int32_t dim1, bool need_alloc = false,
+                  std::shared_ptr<base::DeviceAllocator> alloc = nullptr, void* ptr = nullptr);
 
   explicit Tensor(base::DataType data_type, int32_t dim0, int32_t dim1, int32_t dim2,
-                  bool need_alloc = false,
-                  std::shared_ptr<base::DeviceAllocator> alloc = nullptr,
+                  bool need_alloc = false, std::shared_ptr<base::DeviceAllocator> alloc = nullptr,
                   void* ptr = nullptr);
 
-  explicit Tensor(base::DataType data_type, int32_t dim0, int32_t dim1, int32_t dim2,
-                  int32_t dim3, bool need_alloc = false,
-                  std::shared_ptr<base::DeviceAllocator> alloc = nullptr,
+  explicit Tensor(base::DataType data_type, int32_t dim0, int32_t dim1, int32_t dim2, int32_t dim3,
+                  bool need_alloc = false, std::shared_ptr<base::DeviceAllocator> alloc = nullptr,
                   void* ptr = nullptr);
+
+  explicit Tensor(base::DataType data_type, std::vector<int32_t> dims, bool need_alloc = false,
+                  std::shared_ptr<base::DeviceAllocator> alloc = nullptr, void* ptr = nullptr);
 
   void to_cpu();
 
@@ -74,8 +72,7 @@ class Tensor {
 
   base::DeviceType device_type() const;
 
-  bool allocate(std::shared_ptr<base::DeviceAllocator> allocator,
-                bool need_realloc = false);
+  bool allocate(std::shared_ptr<base::DeviceAllocator> allocator, bool need_realloc = false);
 
   template <typename T>
   T* ptr(int64_t index);
