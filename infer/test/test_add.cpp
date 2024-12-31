@@ -2,7 +2,7 @@
 #include <gtest/gtest.h>
 #include <tensor/tensor.h>
 #include "base/buffer.h"
-#include "../inference/source/op/kernels/add_kernel.h"
+#include "../inference/source/op/kernels/kernels_interface.h"
 TEST(test_op, add) {
   using namespace base;
   auto alloc_cu = base::CPUDeviceAllocatorFactory::get_instance();
@@ -14,7 +14,7 @@ TEST(test_op, add) {
     t1.index<float>(i) = 1;
     t2.index<float>(i) = 2;
   }
-  kernel::get_add_kernel(base::DeviceType::kDeviceCPU)(t1, t2, out);
+  kernel::get_add_kernel(base::DeviceType::kDeviceCPU)(t1, t2, out, nullptr);
   for (int i = 0; i < size; ++i) {
     ASSERT_EQ(out.index<float>(i), 3.f);
   }

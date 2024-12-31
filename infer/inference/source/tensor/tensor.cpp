@@ -268,7 +268,7 @@ bool Tensor::is_empty() const {
 
 void Tensor::init_buffer(std::shared_ptr<base::DeviceAllocator> alloc, base::DataType data_type,
                          bool need_alloc, void* ptr) {
-  if (!alloc && !need_alloc) {
+  if (!need_alloc) {
     std::shared_ptr<base::Buffer> buffer =
         std::make_shared<base::Buffer>(data_type_size(data_type) * size_, nullptr, ptr, true);
     this->buffer_ = buffer;
