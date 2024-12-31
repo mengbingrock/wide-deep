@@ -1,7 +1,6 @@
 #ifndef KUIPER_INCLUDE_OP_ROPE_H_
 #define KUIPER_INCLUDE_OP_ROPE_H_
 #include "layer.h"
-#include <base/cuda_config.h>
 namespace op {
 class RoPELayer : public Layer {
  public:

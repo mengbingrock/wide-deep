@@ -1,7 +1,7 @@
 #ifndef KUIPER_INLCUDE_MHA_H
 #define KUIPER_INLCUDE_MHA_H
-#include "layer.h"
 #include <base/cuda_config.h>
+#include "layer.h"
 namespace op {
 class MultiHeadAttention : public op::Layer {
  public:

@@ -1,4 +1,3 @@
-
 #ifndef KUIPER_INCLUDE_OP_ENCODE_H_
 #define KUIPER_INCLUDE_OP_ENCODE_H_
 #include <sentencepiece_processor.h>

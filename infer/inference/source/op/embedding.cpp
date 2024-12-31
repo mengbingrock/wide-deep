@@ -4,7 +4,7 @@
 #include "op/layer.h"
 namespace op {
 EmbeddingLayer::EmbeddingLayer(base::DeviceType device_type, int32_t dim, int32_t seq_len,
-                               int32_t vocab_size)
+                               int32_t vocab_size, void* stream)
     : dim_(dim),
       seq_len_(seq_len),
       vocab_size_(vocab_size),

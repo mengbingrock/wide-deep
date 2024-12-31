@@ -1,8 +1,6 @@
-
 #ifndef LLAMA_INFER_INCLUDE_OP_SWIGLU_H_
 #define LLAMA_INFER_INCLUDE_OP_SWIGLU_H_
 #include "layer.h"
-#include <base/cuda_config.h>
 namespace op {
 class SwiGLULayer : public op::Layer {
  public:

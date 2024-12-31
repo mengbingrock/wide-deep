@@ -3,7 +3,7 @@
 #define KUIPER_INCLUDE_OP_EMBEDDING_H_
 #include "layer.h"
 namespace op {
-  struct EmbeddingOutput {
+struct EmbeddingOutput {
   tensor::Tensor input_tokens;
   tensor::Tensor input_embeddings;
   tensor::Tensor input_token_num;
@@ -12,7 +12,7 @@ namespace op {
 class EmbeddingLayer : public LayerFp32Param {
  public:
   explicit EmbeddingLayer(base::DeviceType device_type, int32_t dim, int32_t seq_len,
-                          int32_t vocab_size);
+                          int32_t vocab_size, void* stream = nullptr);
 
   base::Status check() const override;
 

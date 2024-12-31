@@ -1,7 +1,7 @@
+
 #ifndef KUIPER_INCLUDE_OP_RMSNORM_H_
 #define KUIPER_INCLUDE_OP_RMSNORM_H_
 #include "layer.h"
-#include <base/cuda_config.h>
 namespace op {
 class RmsNormLayer : public LayerFp32Param {
  public:
