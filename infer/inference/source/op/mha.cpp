@@ -30,7 +30,7 @@ base::Status MultiHeadAttention::forward() {
   if (device_type_ == base::DeviceType::kDeviceCUDA) {
     CHECK(cuda_config_ != nullptr);
   }
-  kernel::get_mha_kernel(base::DeviceType::kDeviceCPU)(
+  kernel::get_mha_kernel(device_type_)(
       pos_, head_num_, layer_index_, seq_len_, kv_dim_, kv_mul_, head_size_, mha_out, query_tensor,
       score_tensor, key_cache_tensor, value_cache_tensor, device_type_,
       cuda_config_ ? cuda_config_.get() : nullptr);
@@ -38,6 +38,8 @@ base::Status MultiHeadAttention::forward() {
 }
 
 void MultiHeadAttention::set_pos(int32_t pos) { this->pos_ = pos; }
+
+void MultiHeadAttention::set_layer_idx(int32_t layer_idx) { this->layer_index_ = layer_idx; }
 
 base::Status MultiHeadAttention::check() const {
   base::Status status;

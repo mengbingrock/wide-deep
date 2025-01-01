@@ -33,11 +33,10 @@ void LLama2Layers::to_cuda(std::shared_ptr<kernel::CudaConfig> config) {
     embedding_layer_->to_cuda();
   }
 
-  for (auto& mha_layer : mha_layers_) {
-    if (mha_layer) {
-      mha_layer->set_cuda_config(config);
-      mha_layer->to_cuda();
-    }
+
+  if (mha_layer_) {
+    mha_layer_->set_cuda_config(config);
+    mha_layer_->to_cuda();
   }
 
   for (auto& weight_layer : wq_layers_) {
@@ -111,7 +110,6 @@ base::Status LLama2Model::init(base::DeviceType device_type) {
     cudaSetDevice(0);
     cuda_config_ = std::make_shared<kernel::CudaConfig>();
     cudaStreamCreate(&cuda_config_->stream);
-    cublasCreate(&cuda_config_->handle);
     cudaError_t err = cudaGetLastError();
     if (err != cudaSuccess) {
       return error::InternalError("The cuda hanle create failed.");
@@ -152,12 +150,9 @@ void LLama2Model::create_nonparam_layers() {
   llama_layers_->rope_layer_ = std::make_shared<op::RoPELayer>(
       device_type_, config_->dim_, config_->kv_dim_, config_->head_size_);
 
-  for (int32_t i = 0; i < config_->layer_num_; ++i) {
-    auto mha_layer = std::make_shared<op::MultiHeadAttention>(
-        device_type_, i, config_->kv_mul_, config_->kv_dim_, config_->seq_len_, config_->head_num_,
-        config_->head_size_);
-    llama_layers_->mha_layers_.push_back(mha_layer);
-  }
+  llama_layers_->mha_layer_ = std::make_shared<op::MultiHeadAttention>(
+      device_type_, 0, config_->kv_mul_, config_->kv_dim_, config_->seq_len_, config_->head_num_,
+      config_->head_size_); 
 
   llama_layers_->add_layer_ = std::make_shared<op::VecAddLayer>(device_type_);
 
@@ -330,10 +325,9 @@ void LLama2Model::init_mem() {
   std::shared_ptr<base::DeviceAllocator> alloc_cu =
       base::CUDADeviceAllocatorFactory::get_instance();
   int32_t max_seq_len = config_->seq_len_;
-  tensor::Tensor input_tokens(base::DataType::kDataTypeInt32, static_cast<int32_t>(max_seq_len),
-                              true, alloc_cpu);
-  tensor::Tensor input_embeddings(base::DataType::kDataTypeFp32, max_seq_len, config_->dim_, true,
-                                  alloc);
+  tensor::Tensor input_tokens(base::DataType::kDataTypeInt32, static_cast<int32_t>(1), true,
+                              alloc_cpu);
+  tensor::Tensor input_embeddings(base::DataType::kDataTypeFp32, 1, config_->dim_, true, alloc);
 
   CHECK(insert_buffer(ModelBufferType::kInputTokens, input_tokens));
   CHECK(insert_buffer(ModelBufferType::kInputEmbeddings, input_embeddings));
@@ -469,7 +463,7 @@ base::Status LLama2Model::create_layers() {
     return error::InternalError("Create the add layer for the llama model failed!");
   }
 
-  if (llama_layers_->mha_layers_.size() != config_->layer_num_) {
+  if (!llama_layers_->mha_layer_) {
     return error::InternalError("Create the mha layer for the llama model failed!");
   }
 
@@ -488,7 +482,10 @@ base::Status LLama2Model::create_layers() {
 op::EmbeddingOutput LLama2Model::embedding(const std::vector<int>& tokens) const {
   auto input_tokens = get_buffer(ModelBufferType::kInputTokens);
   auto input_embeddings = get_buffer(ModelBufferType::kInputEmbeddings);
-  input_tokens.reshape({static_cast<int32_t>(tokens.size())});
+  if (input_tokens.size() != tokens.size()) {
+    input_tokens.reshape({static_cast<int32_t>(tokens.size())});
+    input_embeddings.reshape({static_cast<int32_t>(tokens.size()), config_->dim_});
+  }  
   for (int32_t i = 0; i < tokens.size(); ++i) {
     input_tokens.index<int32_t>(i) = tokens.at(i);
   }
@@ -578,10 +575,11 @@ void LLama2Model::attention_mha(int32_t layer_idx, const tensor::Tensor& pos_ten
   tensor::Tensor score_storage = get_buffer(ModelBufferType::kScoreStorage);
   tensor::Tensor query = this->get_buffer(ModelBufferType::kQuery);
 
-  const auto& mha_layer = llama_layers_->mha_layers_.at(layer_idx);
+  const auto& mha_layer = llama_layers_->mha_layer_;
   CHECK_NE(mha_layer, nullptr) << "The multi head attention layer is null pointer.";
   int pos = pos_tensor.index<int32_t>(0);
   std::dynamic_pointer_cast<op::MultiHeadAttention>(mha_layer)->set_pos(pos);
+  std::dynamic_pointer_cast<op::MultiHeadAttention>(mha_layer)->set_layer_idx(layer_idx);
   STATUS_CHECK(mha_layer->forward(query, score_storage, key_cache, val_cache, mha_output));
 
   // wo @ attention output

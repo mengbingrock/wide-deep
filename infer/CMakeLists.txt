@@ -39,7 +39,7 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/lib)
 
 
 add_library(llama SHARED ${DIR_TENSOR} ${DIR_BASE} ${DIR_OP} ${DIR_MODEL} ${DIR_KERNEL} ${DIR_KERNEL_CPU} ${DIR_KERNEL_CUDA}  ${DIR_SAMPLE})
-target_link_libraries(llama cublas sentencepiece glog::glog gtest gtest_main pthread cudart ${ARMADILLO_LIBRARIES})
+target_link_libraries(llama sentencepiece glog::glog gtest gtest_main pthread cudart ${ARMADILLO_LIBRARIES})
 target_link_directories(llama PUBLIC ${CMAKE_CUDA_COMPILER_LIBRARY_ROOT}/lib64)
 
 
