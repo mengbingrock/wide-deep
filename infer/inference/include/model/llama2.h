@@ -32,16 +32,16 @@ struct LLama2Layers {
 
 class LLama2Model : public Model {
  public:
-  explicit LLama2Model(std::string token_path, std::string model_path);
+  explicit LLama2Model(std::string token_path, std::string model_path, bool is_quant_model);
 
   base::Status init(base::DeviceType device_type) override;
 
   base::Status forward(const tensor::Tensor& input, const tensor::Tensor& pos_tensor,
-                       bool is_prompt, int& next) override;
+                       bool is_prompt, int& next) const override;
 
   std::vector<int32_t> encode(const std::string& sentence) const override;
 
-  int32_t get_eos() override;
+  int32_t get_eos() const override;
 
   std::string decode(int32_t token_idx) const override;
 
@@ -61,6 +61,8 @@ class LLama2Model : public Model {
   void create_param_layers() override;
 
   void create_nonparam_layers() override;
+
+  void create_param_quant_layers() override;
 
   void attention_mha(int32_t layer_idx, const tensor::Tensor& pos_tensor) const;
 

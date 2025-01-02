@@ -54,12 +54,27 @@ __global__ void multi_head_attention_kernel(int32_t pos, int32_t seq_len, float*
   float* query_head = query + head * head_size;
   float* score_head = score_ptr + head * seq_len;
   float scale = 1.f / sqrtf(head_size);
+  int32_t head_offset = (head / kv_mul) * head_size;
   for (int t = threadIdx.x; t <= pos; t += blockDim.x) {
-    float* key_head = key_cache + layer_offset + t * kv_dim + (head / kv_mul) * head_size;
+    float* key_head = key_cache + layer_offset + t * kv_dim + head_offset;
 
     float score = 0.0f;
-    for (int i = 0; i < head_size; ++i) {
-      score += key_head[i] * query_head[i];
+#pragma unroll
+    for (int i = 0; i < head_size; i += 4) {
+      float4 key_head_float4 = *reinterpret_cast<float4*>(key_head + i);
+      float4 query_head_float4 = *reinterpret_cast<float4*>(query_head + i);
+      if (i < head_size) {
+        score += key_head_float4.x * query_head_float4.x;
+      }
+      if (i + 1 < head_size) {
+        score += key_head_float4.y * query_head_float4.y;
+      }
+      if (i + 2 < head_size) {
+        score += key_head_float4.z * query_head_float4.z;
+      }
+      if (i + 3 < head_size) {
+        score += key_head_float4.w * query_head_float4.w;
+      }
     }
 
     score *= scale;
@@ -71,11 +86,12 @@ __global__ void multi_head_attention_kernel(int32_t pos, int32_t seq_len, float*
   __syncthreads();
 
   float* output_head = output + head * head_size;
+  head_offset = layer_offset + (head / kv_mul) * head_size;
   for (int i = threadIdx.x; i < head_size; i += blockDim.x) {
     float value = 0.0f;
 #pragma unroll
     for (int t = 0; t <= pos; t++) {
-      float* value_head = value_cache + layer_offset + t * kv_dim + (head / kv_mul) * head_size;
+      float* value_head = value_cache + head_offset + t * kv_dim;
       float score = score_head[t];
       value += score * value_head[i];
     }

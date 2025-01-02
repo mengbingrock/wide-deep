@@ -8,9 +8,9 @@
 #include "layer.h"
 #include <base/cuda_config.h>
 namespace op {
-class MatmulLayer : public LayerFp32Param {
+class MatmulLayer : public LayerParam {
  public:
-  explicit MatmulLayer(base::DeviceType device_type, int32_t dim0, int32_t dim1);
+  explicit MatmulLayer(base::DeviceType device_type, int32_t dim0, int32_t dim1, bool is_quant_layer = false);
 
   base::Status check() const override;
 
