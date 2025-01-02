@@ -52,4 +52,11 @@ set_target_properties(llama PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
 
 add_subdirectory(test)
-#add_subdirectory(demo)
+add_subdirectory(demo)
+
+
+option(LLAMA3_SUPPORT OFF)
+if (LLAMA3_SUPPORT)
+  message(STATUS "LLAMA3 SUPPORT")
+  add_definitions(-DLLAMA3_SUPPORT)
+endif()
