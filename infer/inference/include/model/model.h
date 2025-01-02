@@ -18,8 +18,11 @@ class Model {
 
   virtual base::Status init(base::DeviceType device_type) = 0;
 
+  virtual base::Status predict(const tensor::Tensor& input, const tensor::Tensor& pos_tensor, 
+                              bool is_prompt, int& next) const = 0;
+
   virtual base::Status forward(const tensor::Tensor& input, const tensor::Tensor& pos_tensor,
-                               bool is_prompt, int& next) const = 0;
+                               int& next) const = 0;
 
   virtual int32_t get_eos() const = 0;
 
@@ -34,6 +37,8 @@ class Model {
   virtual const tensor::Tensor& get_buffer(ModelBufferType buffer_idx) const;
 
   virtual std::string decode(int32_t token_idx) const = 0;
+
+  virtual std::string decode(std::vector<int32_t> token_idxs) const = 0;
 
  protected:
   virtual base::Status insert_buffer(ModelBufferType buffer_idx, const tensor::Tensor& tensor);

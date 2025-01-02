@@ -14,32 +14,31 @@ __global__ void matmul_kernel_cu_fp32(const float* input, const float* weight, f
   if (start_row >= K) {
     return;
   }
+
+  constexpr int pack_size = 4;
+  const int pack_num = M / pack_size;
+  const int pack_off = pack_size * pack_num;
+
 #pragma unroll
   for (int p = start_row; p < end_row; ++p) {
     sdata[tid] = 0;
     int row_offset = p * M;
+    float4* input_float4_ptr = (float4*)input;
+    float4* weight_float4_ptr = (float4*)(weight + row_offset);
+
 #pragma unroll
-    for (int i = tid * 4; i < M; i += THREAD_PER_BLOCK * 4) {
-      float part_sum = 0.f;
-      float4 input_float4 = *(float4*)(input + i);
-      float4 weight_float4 = *(float4*)(weight + row_offset + i);
-      if (i < M) {
-        part_sum += weight_float4.x * input_float4.x;
-      }
-
-      if (i + 1 < M) {
-        part_sum += weight_float4.y * input_float4.y;
-      }
-
-      if (i + 2 < M) {
-        part_sum += weight_float4.z * input_float4.z;
-      }
-
-      if (i + 3 < M) {
-        part_sum += weight_float4.w * input_float4.w;
-      }
+    for (int i = tid; i < pack_num; i += blockDim.x) {
+      float4 input_float4 = *(input_float4_ptr + i);
+      float4 weight_float4 = *(weight_float4_ptr + i);
+      float part_sum = input_float4.x * weight_float4.x + input_float4.y * weight_float4.y +
+                       input_float4.z * weight_float4.z + input_float4.w * weight_float4.w;
       sdata[tid] += part_sum;
     }
+
+    for (int i = pack_off + tid; i < M; i += blockDim.x) {
+      sdata[tid] += input[i] * weight[row_offset + i];
+    }
+
     __syncthreads();
 
     using BlockReduce = cub::BlockReduce<float, THREAD_PER_BLOCK>;
@@ -89,9 +88,6 @@ __global__ void matmul_kernel_cu_fp32int8(const float* input, const int8_t* weig
 
 void matmul_kernel_cu(const tensor::Tensor& input, const tensor::Tensor& weight,
                       const tensor::Tensor& output, const float scale, const CudaConfig* config) {
-  CHECK(config != nullptr);
-  if (config->stream) {
-  }
   CHECK(input.is_empty() == false && input.dims_size() <= 2);
   CHECK(input.device_type() == base::DeviceType::kDeviceCUDA);
 
@@ -99,17 +95,23 @@ void matmul_kernel_cu(const tensor::Tensor& input, const tensor::Tensor& weight,
   CHECK(weight.device_type() == base::DeviceType::kDeviceCUDA);
   const int32_t K = weight.get_dim(0);  // row
   const int32_t M = weight.get_dim(1);  // col
+  int packet_size = 4;
+  // CHECK_EQ(M % packet_size, 0);
+
   CHECK_EQ(M, input.get_dim(0));
-  matmul_kernel_cu_fp32<128, 1><<<K, 128>>>(input.ptr<float>(), weight.ptr<float>(),
-                                            const_cast<float*>(output.ptr<float>()), M, K);
+  if (config && config->stream) {
+    matmul_kernel_cu_fp32<128, 1><<<K, 128, 0, config->stream>>>(
+        input.ptr<float>(), weight.ptr<float>(), const_cast<float*>(output.ptr<float>()), M, K);
+  } else {
+    matmul_kernel_cu_fp32<128, 1><<<K, 128>>>(input.ptr<float>(), weight.ptr<float>(),
+                                              const_cast<float*>(output.ptr<float>()), M, K);
+  }
 }
 
 void matmul_kernel_cu_qint8(const tensor::Tensor& input, const tensor::Tensor& weight,
                             const tensor::Tensor& output, int32_t group_size,
                             const tensor::Tensor& scale, const CudaConfig* config) {
   CHECK(config != nullptr);
-  if (config->stream) {
-  }
   CHECK(input.is_empty() == false && input.dims_size() <= 2);
   CHECK(input.device_type() == base::DeviceType::kDeviceCUDA);
 
@@ -117,9 +119,17 @@ void matmul_kernel_cu_qint8(const tensor::Tensor& input, const tensor::Tensor& w
   CHECK(weight.device_type() == base::DeviceType::kDeviceCUDA);
   const int32_t K = weight.get_dim(0);  // row
   const int32_t M = weight.get_dim(1);  // col
+  int packet_size = 4;
+  CHECK_EQ(M % packet_size, 0);
   CHECK_EQ(M, input.get_dim(0));
-  matmul_kernel_cu_fp32int8<128, 1><<<K, 128>>>(input.ptr<float>(), weight.ptr<int8_t>(),
-                                                scale.ptr<float>(), group_size,
-                                                const_cast<float*>(output.ptr<float>()), M, K);
+  if (config->stream) {
+    matmul_kernel_cu_fp32int8<128, 1><<<K, 128, 0, config->stream>>>(
+        input.ptr<float>(), weight.ptr<int8_t>(), scale.ptr<float>(), group_size,
+        const_cast<float*>(output.ptr<float>()), M, K);
+  } else {
+    matmul_kernel_cu_fp32int8<128, 1><<<K, 128>>>(input.ptr<float>(), weight.ptr<int8_t>(),
+                                                  scale.ptr<float>(), group_size,
+                                                  const_cast<float*>(output.ptr<float>()), M, K);
+  }
 }
 }  // namespace kernel

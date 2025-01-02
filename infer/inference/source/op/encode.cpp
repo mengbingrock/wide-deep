@@ -37,4 +37,10 @@ std::string EncodeLayer::decode(int32_t token_id) const {
   std::vector<int32_t> token_ids{token_id};
   return this->spe->DecodeIds(token_ids);
 }
+
+std::string EncodeLayer::decode(const std::vector<int32_t>& token_ids) const {
+  CHECK(spe != nullptr);
+  return this->spe->DecodeIds(token_ids);
+}
+
 }  // namespace op

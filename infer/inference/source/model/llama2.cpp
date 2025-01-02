@@ -6,6 +6,8 @@
 #include <op/rmsnorm.h>
 #include <sentencepiece_processor.h>
 #include <utility>
+#include "../op/kernels/cpu/rope_kernel.h"
+#include "../op/kernels/cuda/rope_kernel.cuh"
 #include "base/tick.h"
 namespace model {
 
@@ -126,12 +128,22 @@ base::Status LLama2Model::init(base::DeviceType device_type) {
     return read_status;
   }
   init_mem();
+  if (device_type_ == base::DeviceType::kDeviceCPU) {
+    kernel::sin_cos_cache_calc_cpu(config_->head_size_, config_->seq_len_,
+                                   get_buffer(ModelBufferType::kSinCache).ptr<float>(),
+                                   get_buffer(ModelBufferType::kCosCache).ptr<float>());
+  } else {
+    CHECK_NE(cuda_config_, nullptr);
+    kernel::sin_cos_cache_calc_cu(config_->head_size_, config_->seq_len_,
+                                  get_buffer(ModelBufferType::kSinCache),
+                                  get_buffer(ModelBufferType::kCosCache), cuda_config_->stream);
+  }
   sampler_ = std::make_unique<sampler::ArgmaxSampler>(device_type_);
   return error::Success();
 }
 
 base::Status LLama2Model::forward(const tensor::Tensor& input, const tensor::Tensor& pos_tensor,
-                                  bool is_prompt, int& next) const {
+                                  int& next) const {
   if (input.is_empty()) {
     return base::error::InvalidArgument("The input tensor is empty.");
   }
@@ -149,7 +161,6 @@ base::Status LLama2Model::forward(const tensor::Tensor& input, const tensor::Ten
     feed_forward(layer_idx, input);
   }
   cls_logits(input);
-  next = post_processing(pos_tensor, is_prompt);
   return base::error::Success();
 }
 
@@ -421,6 +432,11 @@ std::string LLama2Model::decode(int32_t token_idx) const {
   return this->encode_layer_->decode(token_idx);
 }
 
+std::string LLama2Model::decode(std::vector<int32_t> token_idxs) const {
+  CHECK(this->encode_layer_ != nullptr);
+  return this->encode_layer_->decode(token_idxs);
+}
+
 void LLama2Model::init_mem() {
   std::shared_ptr<base::DeviceAllocator> alloc;
   if (device_type_ == base::DeviceType::kDeviceCPU) {
@@ -441,6 +457,14 @@ void LLama2Model::init_mem() {
   // 减少开销
   tensor::Tensor input_tokens(base::DataType::kDataTypeInt32, 1, true, alloc_cpu);
   tensor::Tensor input_embeddings(base::DataType::kDataTypeFp32, 1, config_->dim_, true, alloc);
+
+  tensor::Tensor sin_cache(base::DataType::kDataTypeFp32, config_->head_size_ * config_->seq_len_,
+                           true, alloc);
+  tensor::Tensor cos_cache(base::DataType::kDataTypeFp32, config_->head_size_ * config_->seq_len_,
+                           true, alloc);
+
+  CHECK(insert_buffer(ModelBufferType::kSinCache, sin_cache));
+  CHECK(insert_buffer(ModelBufferType::kCosCache, cos_cache));
 
   CHECK(insert_buffer(ModelBufferType::kInputTokens, input_tokens));
   CHECK(insert_buffer(ModelBufferType::kInputEmbeddings, input_embeddings));
@@ -607,10 +631,8 @@ op::EmbeddingOutput LLama2Model::embedding(const std::vector<int>& tokens) const
       << "The embedding layer in the llama2 model is null pointer.";
   STATUS_CHECK(
       llama_layers_->embedding_layer_->forward(input_tokens, input_token_num, input_embeddings));
-  op::EmbeddingOutput output;
-  output.input_embeddings = input_embeddings;
-  output.input_tokens = input_tokens;
-  output.input_token_num = input_token_num;
+
+  op::EmbeddingOutput output(input_tokens, input_embeddings, input_token_num);
   return output;
 }
 
@@ -671,8 +693,20 @@ void LLama2Model::attention_qkv(int32_t layer_idx, const tensor::Tensor& pos_ten
   // rope
   CHECK_NE(llama_layers_->rope_layer_, nullptr)
       << "The RoPE layer in the attention block is null pointer.";
-  STATUS_CHECK(llama_layers_->rope_layer_->forward(query, key, pos_tensor, tensor::Tensor{}));
+  STATUS_CHECK(llama_layers_->rope_layer_->forward(
+      query, key, pos_tensor, get_buffer(ModelBufferType::kSinCache),
+      get_buffer(ModelBufferType::kCosCache), tensor::Tensor{}));
 }
+
+base::Status LLama2Model::predict(const tensor::Tensor& input, const tensor::Tensor& pos_tensor,
+                                  bool is_prompt, int& next) const {
+  auto status = forward(input, pos_tensor, next);
+  if (!status) {
+    return status;
+  }
+  next = post_processing(pos_tensor, is_prompt);
+  return base::error::Success();
+  }
 
 void LLama2Model::attention_mha(int32_t layer_idx, const tensor::Tensor& pos_tensor) const {
   CHECK(llama_layers_ != nullptr);
